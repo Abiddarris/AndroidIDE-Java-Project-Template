@@ -1,0 +1,1 @@
+find "${3}" -type f -name "*.java" -exec javac -cp "${1}" -d "${2}" '{}' +

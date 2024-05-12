@@ -1,0 +1,136 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.abiddarris.fulljavarunner'
+    compileSdk 33
+    buildToolsVersion '34.0.4'
+    
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    
+    
+}
+
+def scripts = rootProject.rootDir.getAbsolutePath() + '/scripts/'
+def libs = scripts + 'libs'
+def defaultLibs = fileTree(dir: libs, include: ['*.jar'])
+
+dependencies {
+    implementation defaultLibs
+}
+
+def paths = "";
+def sourceFile = "src/main/java";
+def binFile = "build/main/classes"
+def testFile = "src/test/java"
+def binTestFile = "build/test/classes"
+def mainClass = "com.company.project.Main"
+def testClasses = ["com.company.project.MyTest"]
+def jarPath = "build/jar"
+def jarName = "project.jar"
+def docPath = "build/doc"
+
+task getDependenciesPaths {
+    doLast {
+        def _variant = null;
+        android.applicationVariants.all { variant ->
+            if(_variant == null) {
+                _variant = variant;
+            }
+        }
+        
+        _variant.getCompileConfiguration().resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            paths += "${artifact.file}:"
+        }
+        
+        defaultLibs.each { path ->
+            paths += "${path}:"
+        }
+    }
+}
+
+task a_compile {
+    dependsOn getDependenciesPaths
+    
+    doLast {
+        exec {
+            def classpaths = paths + sourceFile
+            commandLine 'bash', "$scripts" + 'compile.sh', 
+                        classpaths, binFile, sourceFile
+        }
+    }
+}
+
+task a_compileTests {
+    dependsOn a_compile
+    
+    doLast {
+        exec {
+            def classpaths = paths + testFile + ":${sourceFile}" 
+            commandLine 'bash', "$scripts" + 'compile.sh', 
+                        classpaths, binTestFile, testFile
+        }
+    }
+}
+
+task a_runTests {
+    dependsOn a_compileTests
+    doLast {
+        exec {
+            def classes = ""
+            testClasses.each { name ->
+                classes += "${name},";
+            }
+            
+            if(!classes.isEmpty() && classes.charAt(classes.length() - 1) == ',') {
+                classes = classes.substring(0, classes.length() - 1)
+            }
+            
+            def classpaths = paths + file(binFile).getAbsolutePath() + ":" +
+                file(binTestFile).getAbsolutePath() + ":" + file(libs).getAbsolutePath()
+            commandLine 'bash', "$scripts" + 'run.sh', 
+                        classpaths, "JunitMain", rootProject.rootDir.getAbsolutePath(), classes
+        }
+    }        
+}
+
+task a_run {
+    dependsOn a_compile
+    doLast {
+        exec {
+            def classpaths = paths + file(binFile).getAbsolutePath()
+            commandLine 'bash', "$scripts" + 'run.sh', 
+                        classpaths, mainClass, rootProject.rootDir.getAbsolutePath()
+        }
+    }
+}
+
+task cleanMain(type: Delete) {
+    delete 'build/main'
+}
+
+task a_createJar {
+    dependsOn cleanMain, a_compile
+    
+    doLast {
+        exec {
+            commandLine 'bash', "$scripts" + 'jar.sh', 
+                        jarPath, jarName, binFile
+        }
+    }
+}
+
+task a_createJavaDoc {
+    doLast {
+        exec {
+            commandLine 'bash', "${scripts}doc.sh",
+                         docPath, sourceFile
+        }
+    }
+}
+
+a_compile.mustRunAfter cleanMain
