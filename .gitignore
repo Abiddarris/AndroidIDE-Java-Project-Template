@@ -9,6 +9,7 @@
 
 # Java class files
 *.class
+!scripts/libs/JunitMain.class
 
 # Generated files
 /bin/
@@ -83,4 +84,4 @@ lint/tmp/
 # lint/reports/
 
 .androidide
-git2
+scripts/libs/JunitMain.java
